@@ -27,7 +27,7 @@ sudo chown -R 1000:1000 /media
 
 # GPU drivers
 sudo apt update
-sudo apt install -y intel-media-driver i965-va-driver
+sudo apt install -y intel-media-va-driver-non-free i965-va-driver
 
 # Add to groups
 sudo usermod -aG video,render $USER
@@ -141,5 +141,6 @@ Edit `compose.yml`, find `jellyfin` and `tdarr` sections, uncomment:
 devices:
   - /dev/dri/renderD128:/dev/dri/renderD128 # adjust D128/D129 as needed
 ```
+
 
 
