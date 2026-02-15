@@ -103,7 +103,7 @@ Go to: **https://one.dash.cloudflare.com/**
 
 ---
 
-## 7. Setup Services (After Deploy)
+## 7. Setup Services (After deployment)
 
 **Jellyfin:**
 
@@ -141,3 +141,4 @@ Edit `compose.yml`, find `jellyfin` and `tdarr` sections, uncomment:
 devices:
   - /dev/dri/renderD128:/dev/dri/renderD128 # adjust D128/D129 as needed
 ```
+
