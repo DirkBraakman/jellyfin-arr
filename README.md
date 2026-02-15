@@ -1,6 +1,6 @@
 # Jellyfin Arr Stack
 
-Auto-download media server voor films, series & muziek.
+Dockerized auto-download media server for movies, shows & music.
 
 ---
 
@@ -141,4 +141,5 @@ Edit `compose.yml`, find `jellyfin` and `tdarr` sections, uncomment:
 devices:
   - /dev/dri/renderD128:/dev/dri/renderD128 # adjust D128/D129 as needed
 ```
+
 
