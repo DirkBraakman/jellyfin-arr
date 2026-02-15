@@ -30,7 +30,7 @@ sudo apt update
 sudo apt install -y intel-media-va-driver-non-free i965-va-driver
 
 # Add to groups
-sudo usermod -aG video,render $USER
+sudo usermod -aG video,render $(id -un 1000)
 # Logout/login to apply
 
 # Check render group ID (note the number)
@@ -141,6 +141,7 @@ Edit `compose.yml`, find `jellyfin` and `tdarr` sections, uncomment:
 devices:
   - /dev/dri/renderD128:/dev/dri/renderD128 # adjust D128/D129 as needed
 ```
+
 
 
 
