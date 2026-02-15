@@ -1,0 +1,225 @@
+# Jellyfin Arr stack with Cloudflare tunnel
+# See README.md for full setup instructions
+# Edit .env file to configure settings and secrets
+
+services:
+  # Cloudflare Tunnel - securely exposes services to internet
+  cloudflare-tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare-tunnel
+    restart: unless-stopped
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - media-network
+
+  # Media serving - Intel GPU enabled
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    group_add:
+      - "107" # Video group (check: getent group render | cut -d: -f3)
+    ports:
+      - "${JELLYFIN_PORT}:8096"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - JELLYFIN_PublishedServerUrl=${JELLYFIN_DOMAIN}
+    volumes:
+      - ${CONTAINER_ROOT}/jellyfin:/config
+      - ${MEDIA_ROOT}:/media
+    devices:
+      - /dev/dri:/dev/dri
+    # - /dev/dri/renderD128:/dev/dri/renderD128  # adjust D128/D129 as needed
+    networks:
+      - media-network
+
+  # Media requests
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=info
+      - TZ=${TZ}
+    volumes:
+      - ${CONTAINER_ROOT}/jellyseerr:/app/config
+    networks:
+      - media-network
+
+  # VPN for qBittorrent
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}
+      - VPN_TYPE=openvpn
+      - OPENVPN_USER=${VPN_USERNAME}
+      - OPENVPN_PASSWORD=${VPN_PASSWORD}
+      - SERVER_COUNTRIES=${VPN_SERVER_COUNTRIES}
+      - FIREWALL=on
+      - FIREWALL_OUTBOUND_SUBNETS=172.20.0.0/16
+    networks:
+      media-network:
+        ipv4_address: 172.20.0.2
+
+  # Torrent client - accessed via VPN network namespace
+  qbittorrent:
+    image: ghcr.io/hotio/qbittorrent:release
+    container_name: qbittorrent
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - WEBUI_PORT=${QBITTORRENT_PORT}
+      - WEBUI_USERNAME=${QBITTORRENT_USERNAME}
+      - WEBUI_PASSWORD=${QBITTORRENT_PASSWORD}
+    volumes:
+      - ${CONTAINER_ROOT}/qbittorrent:/config
+      - ${MEDIA_ROOT}:/media
+    network_mode: "service:gluetun"
+
+  # Torrent index manager
+  prowlarr:
+    image: ghcr.io/hotio/prowlarr:release
+    container_name: prowlarr
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONTAINER_ROOT}/prowlarr:/config
+    networks:
+      - media-network
+
+  # Movie manager
+  radarr:
+    image: ghcr.io/hotio/radarr:release
+    container_name: radarr
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONTAINER_ROOT}/radarr:/config
+      - ${MEDIA_ROOT}:/media
+    networks:
+      - media-network
+
+  # Show manager
+  sonarr:
+    image: ghcr.io/hotio/sonarr:release
+    container_name: sonarr
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONTAINER_ROOT}/sonarr:/config
+      - ${MEDIA_ROOT}:/media
+    networks:
+      - media-network
+
+  # Music manager
+  lidarr:
+    image: ghcr.io/hotio/lidarr:release
+    container_name: lidarr
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONTAINER_ROOT}/lidarr:/config
+      - ${MEDIA_ROOT}:/media
+    networks:
+      - media-network
+
+  # Subtitle manager
+  bazarr:
+    image: ghcr.io/hotio/bazarr:release
+    container_name: bazarr
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONTAINER_ROOT}/bazarr:/config
+      - ${MEDIA_ROOT}:/media
+    networks:
+      - media-network
+
+  # Torrent quality manager
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr:latest
+    container_name: recyclarr
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONTAINER_ROOT}/recyclarr:/config
+    networks:
+      - media-network
+
+  # Media encoder and optimizer - Intel GPU enabled
+  tdarr:
+    image: ghcr.io/haveagitgat/tdarr:latest
+    container_name: tdarr
+    restart: unless-stopped
+    group_add:
+      - "107" # Video group (check: getent group render | cut -d: -f3)
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - serverIP=0.0.0.0
+      - serverPort=${TDARR_SERVER_PORT}
+      - webUIPort=${TDARR_WEB_PORT}
+      - ADMIN_USER=${TDARR_ADMIN_USERNAME}
+      - ADMIN_PASS=${TDARR_ADMIN_PASSWORD}
+    volumes:
+      - ${CONTAINER_ROOT}/tdarr/server:/app/server
+      - ${CONTAINER_ROOT}/tdarr/configs:/app/configs
+      - ${MEDIA_ROOT}:/media
+    devices:
+      - /dev/dri:/dev/dri
+    # - /dev/dri/renderD128:/dev/dri/renderD128  # adjust D128/D129 as needed
+    networks:
+      - media-network
+
+  # Dashboard
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    ports:
+      - "${HOMEPAGE_PORT}:3000"
+    environment:
+      - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ${CONTAINER_ROOT}/homepage:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - media-network
+
+networks:
+  # Internal traffic
+  media-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
