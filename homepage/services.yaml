@@ -1,0 +1,3 @@
+---
+# Using Docker autodiscovery via labels in compose.yml
+# Leave empty so Homepage discovers services from container labels.

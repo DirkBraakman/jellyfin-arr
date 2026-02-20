@@ -1,74 +1,14 @@
-# Jellyfin Arr stack with Cloudflare tunnel
-# See README.md for full setup instructions
-# Edit .env file to configure settings and secrets
+# Jellyfin Arr stack - see README.md for setup
 
 services:
-  # Cloudflare Tunnel - securely exposes services to internet
+  # Cloudflare Tunnel
   cloudflare-tunnel:
     image: cloudflare/cloudflared:latest
     container_name: cloudflare-tunnel
     restart: unless-stopped
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}
-    networks:
-      - media-network
 
-  # Media serving - Intel GPU enabled
-  jellyfin:
-    image: jellyfin/jellyfin:latest
-    container_name: jellyfin
-    restart: unless-stopped
-    user: ${PUID}:${PGID}
-    group_add:
-      - "107" # Video group (check: getent group render | cut -d: -f3)
-    ports:
-      - "${JELLYFIN_PORT}:8096"
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-      - JELLYFIN_PublishedServerUrl=${JELLYFIN_DOMAIN}
-    volumes:
-      - ${CONTAINER_ROOT}/jellyfin:/config
-      - ${MEDIA_ROOT}:/media
-    devices:
-      - /dev/dri:/dev/dri
-    # - /dev/dri/renderD128:/dev/dri/renderD128  # adjust D128/D129 as needed
-    networks:
-      - media-network
-
-  # Media requests
-  jellyseerr:
-    image: fallenbagel/jellyseerr:latest
-    container_name: jellyseerr
-    restart: unless-stopped
-    environment:
-      - LOG_LEVEL=info
-      - TZ=${TZ}
-    volumes:
-      - ${CONTAINER_ROOT}/jellyseerr:/app/config
-    networks:
-      - media-network
-
-  # VPN for qBittorrent
-  gluetun:
-    image: qmcgaw/gluetun:latest
-    container_name: gluetun
-    restart: unless-stopped
-    cap_add:
-      - NET_ADMIN
-    environment:
-      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}
-      - VPN_TYPE=openvpn
-      - OPENVPN_USER=${VPN_USERNAME}
-      - OPENVPN_PASSWORD=${VPN_PASSWORD}
-      - SERVER_COUNTRIES=${VPN_SERVER_COUNTRIES}
-      - FIREWALL=on
-      - FIREWALL_OUTBOUND_SUBNETS=172.20.0.0/16
-    networks:
-      media-network:
-        ipv4_address: 172.20.0.2
-
-  # Torrent client - accessed via VPN network namespace
+  # Torrent client
   qbittorrent:
     image: ghcr.io/hotio/qbittorrent:release
     container_name: qbittorrent
@@ -77,33 +17,103 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
-      - WEBUI_PORT=${QBITTORRENT_PORT}
-      - WEBUI_USERNAME=${QBITTORRENT_USERNAME}
-      - WEBUI_PASSWORD=${QBITTORRENT_PASSWORD}
+      - WEBUI_PORT=8080
+    ports:
+      - ${QBITTORRENT_PORT}:8080
     volumes:
       - ${CONTAINER_ROOT}/qbittorrent:/config
       - ${MEDIA_ROOT}:/media
-    network_mode: "service:gluetun"
 
-  # Torrent index manager
+  # Media serving
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    group_add:
+      - "${RENDER_GROUP_ID}"
+    ports:
+      - "${JELLYFIN_PORT}:8096"
+    environment:
+      - TZ=${TZ}
+      - JELLYFIN_PublishedServerUrl=${JELLYFIN_DOMAIN}
+    volumes:
+      - ${CONTAINER_ROOT}/jellyfin:/config
+      - ${MEDIA_ROOT}:/media
+    devices:
+      - /dev/dri:/dev/dri
+    labels:
+      - homepage.group=Media
+      - homepage.name=Jellyfin
+      - homepage.icon=jellyfin.png
+      - homepage.href=https://${JELLYFIN_DOMAIN}
+      - homepage.description=Watch movies & shows!
+      - homepage.widget.type=jellyfin
+      - homepage.widget.url=http://jellyfin:8096
+      - homepage.widget.key=${JELLYFIN_API_KEY}
+      - homepage.widget.version=2
+      - homepage.widget.enableBlocks=true
+      - homepage.widget.enableNowPlaying=true
+      - homepage.widget.enableUser=true
+      - homepage.widget.showEpisodeNumber=false
+      - homepage.widget.expandOneStreamToTwoRows=true
+      - homepage.widget.fields=["movies","series"]
+
+  # Media requesting
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    ports:
+      - "${JELLYSEERR_PORT}:5055"
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ${CONTAINER_ROOT}/jellyseerr:/app/config
+    labels:
+      - homepage.group=Media
+      - homepage.name=Jellyseerr
+      - homepage.icon=jellyseerr.png
+      - homepage.href=https://${JELLYSEERR_DOMAIN}
+      - homepage.description=Request content!
+      - homepage.widget.type=jellyseerr
+      - homepage.widget.url=http://jellyseerr:5055
+      - homepage.widget.key=${JELLYSEERR_API_KEY}
+      - homepage.widget.fields=["pending","available","issues"]
+
+  # Media indexing
   prowlarr:
     image: ghcr.io/hotio/prowlarr:release
     container_name: prowlarr
     restart: unless-stopped
+    ports:
+      - "${PROWLARR_PORT}:9696"
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
     volumes:
       - ${CONTAINER_ROOT}/prowlarr:/config
-    networks:
-      - media-network
 
-  # Movie manager
+  # Prowlarr bypass for Cloudflare indexers
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    ports:
+      - "${FLARESOLVERR_PORT}:8191"
+    environment:
+      - TZ=${TZ}
+      - LOG_LEVEL=${FLARESOLVERR_LOG_LEVEL}
+
+  # Movie management
   radarr:
     image: ghcr.io/hotio/radarr:release
     container_name: radarr
     restart: unless-stopped
+    ports:
+      - "${RADARR_PORT}:7878"
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -111,14 +121,24 @@ services:
     volumes:
       - ${CONTAINER_ROOT}/radarr:/config
       - ${MEDIA_ROOT}:/media
-    networks:
-      - media-network
+    labels:
+      - homepage.group=Media
+      - homepage.name=Radarr
+      - homepage.icon=radarr.png
+      - homepage.description=Movie download status
+      - homepage.widget.type=radarr
+      - homepage.widget.url=http://radarr:7878
+      - homepage.widget.key=${RADARR_API_KEY}
+      - homepage.widget.enableQueue=true
+      - homepage.widget.fields=["queued"]
 
-  # Show manager
+  # Show management
   sonarr:
     image: ghcr.io/hotio/sonarr:release
     container_name: sonarr
     restart: unless-stopped
+    ports:
+      - "${SONARR_PORT}:8989"
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -126,29 +146,24 @@ services:
     volumes:
       - ${CONTAINER_ROOT}/sonarr:/config
       - ${MEDIA_ROOT}:/media
-    networks:
-      - media-network
+    labels:
+      - homepage.group=Media
+      - homepage.name=Sonarr
+      - homepage.icon=sonarr.png
+      - homepage.description=Show download status
+      - homepage.widget.type=sonarr
+      - homepage.widget.url=http://sonarr:8989
+      - homepage.widget.key=${SONARR_API_KEY}
+      - homepage.widget.enableQueue=true
+      - homepage.widget.fields=["queued"]
 
-  # Music manager
-  lidarr:
-    image: ghcr.io/hotio/lidarr:release
-    container_name: lidarr
-    restart: unless-stopped
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-    volumes:
-      - ${CONTAINER_ROOT}/lidarr:/config
-      - ${MEDIA_ROOT}:/media
-    networks:
-      - media-network
-
-  # Subtitle manager
+  # Subtitle management
   bazarr:
     image: ghcr.io/hotio/bazarr:release
     container_name: bazarr
     restart: unless-stopped
+    ports:
+      - "${BAZARR_PORT}:6767"
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -156,70 +171,71 @@ services:
     volumes:
       - ${CONTAINER_ROOT}/bazarr:/config
       - ${MEDIA_ROOT}:/media
-    networks:
-      - media-network
-
-  # Torrent quality manager
-  recyclarr:
-    image: ghcr.io/recyclarr/recyclarr:latest
-    container_name: recyclarr
-    restart: unless-stopped
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-    volumes:
-      - ${CONTAINER_ROOT}/recyclarr:/config
-    networks:
-      - media-network
-
-  # Media encoder and optimizer - Intel GPU enabled
-  tdarr:
-    image: ghcr.io/haveagitgat/tdarr:latest
-    container_name: tdarr
-    restart: unless-stopped
-    group_add:
-      - "107" # Video group (check: getent group render | cut -d: -f3)
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-      - serverIP=0.0.0.0
-      - serverPort=${TDARR_SERVER_PORT}
-      - webUIPort=${TDARR_WEB_PORT}
-      - ADMIN_USER=${TDARR_ADMIN_USERNAME}
-      - ADMIN_PASS=${TDARR_ADMIN_PASSWORD}
-    volumes:
-      - ${CONTAINER_ROOT}/tdarr/server:/app/server
-      - ${CONTAINER_ROOT}/tdarr/configs:/app/configs
-      - ${MEDIA_ROOT}:/media
-    devices:
-      - /dev/dri:/dev/dri
-    # - /dev/dri/renderD128:/dev/dri/renderD128  # adjust D128/D129 as needed
-    networks:
-      - media-network
 
   # Dashboard
   homepage:
     image: ghcr.io/gethomepage/homepage:latest
     container_name: homepage
     restart: unless-stopped
+    user: ${PUID}:${PGID}
     ports:
       - "${HOMEPAGE_PORT}:3000"
+    group_add:
+      - "${DOCKER_GID:?missing DOCKER_GID}"
     environment:
       - TZ=${TZ}
-      - PUID=${PUID}
-      - PGID=${PGID}
+      - HOMEPAGE_ALLOWED_HOSTS=${HOMEPAGE_ALLOWED_HOSTS}
+      - HOMEPAGE_VAR_JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
+      - HOMEPAGE_VAR_JELLYSEERR_API_KEY=${JELLYSEERR_API_KEY}
+      - HOMEPAGE_VAR_SONARR_API_KEY=${SONARR_API_KEY}
+      - HOMEPAGE_VAR_RADARR_API_KEY=${RADARR_API_KEY}
     volumes:
       - ${CONTAINER_ROOT}/homepage:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - media-network
 
-networks:
-  # Internal traffic
-  media-network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
+  # User management
+  wizarr:
+    image: ghcr.io/wizarrrr/wizarr:latest
+    container_name: wizarr
+    restart: unless-stopped
+    ports:
+      - "${WIZARR_PORT}:5690"
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ${CONTAINER_ROOT}/wizarr:/data/database
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - FOWNER
+      - SETUID
+      - SETGID
+
+  # Encoding management - Uncomment to enable
+  # tdarr:
+  #   image: ghcr.io/haveagitgat/tdarr:latest
+  #   container_name: tdarr
+  #   restart: unless-stopped
+  #   group_add:
+  #     - "${RENDER_GROUP_ID}"
+  #   ports:
+  #     - "${TDARR_WEB_PORT}:8265"
+  #     - "${TDARR_SERVER_PORT}:8266"
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - TZ=${TZ}
+  #     - serverIP=0.0.0.0
+  #     - serverPort=8266
+  #     - webUIPort=8265
+  #     - ADMIN_USER=${TDARR_USERNAME}
+  #     - ADMIN_PASS=${TDARR_PASSWORD}
+  #   volumes:
+  #     - ${CONTAINER_ROOT}/tdarr/server:/app/server
+  #     - ${CONTAINER_ROOT}/tdarr/configs:/app/configs
+  #     - ${MEDIA_ROOT}:/media
+  #   devices:
+  #     - /dev/dri:/dev/dri
