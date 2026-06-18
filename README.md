@@ -246,6 +246,6 @@ docker compose pull && docker compose up -d
 
 ## Notes
 
-- Never commit .env — it contains secrets (.gitignore is set up)
+- Never commit .env - it contains secrets (.gitignore is set up)
 - Only Jellyfin, Seerr, Homepage and Wizarr are exposed via Cloudflare
 - All other services are LAN-only
