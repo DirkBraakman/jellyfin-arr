@@ -1,0 +1,278 @@
+services:
+  # Cloudflared - HTTPS tunnel
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel run --token ${CLOUDFLARED_TOKEN}
+    networks: [default]
+
+  # qBittorrent - Torrent client
+  qbittorrent:
+    image: ghcr.io/hotio/qbittorrent:latest
+    container_name: qbittorrent
+    restart: unless-stopped
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK: ${UMASK}
+      TZ: ${TZ}
+      LIBTORRENT: v1
+      WEBUI_PORTS: ${QBITTORRENT_PORT} # Needed to skip host port check in the webui
+    ports:
+      - ${QBITTORRENT_PORT}:${QBITTORRENT_PORT}
+    volumes:
+      - ${APPDATA}/qbittorrent:/config
+      - ${DOWNLOADS}:/downloads
+    networks: [default]
+
+  # SABnzbd - Usenet client
+  sabnzbd:
+    image: ghcr.io/hotio/sabnzbd:latest
+    container_name: sabnzbd
+    restart: unless-stopped
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK: ${UMASK}
+      TZ: ${TZ}
+    ports:
+      - ${SABNZBD_PORT}:8080
+    volumes:
+      - ${APPDATA}/sabnzbd:/config
+      - ${DOWNLOADS}:/downloads
+    networks: [default]
+
+  # Jellyfin - Media serving (Intel QuickSync ready)
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    group_add:
+      - "${RENDER_GID}"
+    environment:
+      TZ: ${TZ}
+      JELLYFIN_PublishedServerUrl: ${JELLYFIN_DOMAIN}
+      LIBVA_DRIVER_NAME: iHD
+    ports:
+      - ${JELLYFIN_PORT}:8096
+    volumes:
+      - ${APPDATA}/jellyfin:/config
+      - ${MEDIA}:/media
+    devices:
+      - /dev/dri:/dev/dri
+    networks: [default]
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+
+  # Seerr - Media requesting
+  seerr:
+    image: seerr/seerr:latest
+    container_name: seerr
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    ports:
+      - ${SEERR_PORT}:5055
+    environment:
+      TZ: ${TZ}
+    volumes:
+      - ${APPDATA}/seerr:/app/config
+    networks: [default]
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+
+  # Prowlarr - Indexer management
+  prowlarr:
+    image: ghcr.io/hotio/prowlarr:latest
+    container_name: prowlarr
+    restart: unless-stopped
+    ports:
+      - ${PROWLARR_PORT}:9696
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK: ${UMASK}
+      TZ: ${TZ}
+    volumes:
+      - ${APPDATA}/prowlarr:/config
+    networks: [default]
+
+  # FlareSolverr - Cloudflare bypass
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    ports:
+      - ${FLARESOLVERR_PORT}:8191
+    environment:
+      TZ: ${TZ}
+      LOG_LEVEL: info
+    networks: [default]
+
+  # Radarr - Movie management
+  radarr:
+    image: ghcr.io/hotio/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+    depends_on: [prowlarr]
+    ports:
+      - ${RADARR_PORT}:7878
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK: ${UMASK}
+      TZ: ${TZ}
+    volumes:
+      - ${APPDATA}/radarr:/config
+      - ${DOWNLOADS}:/downloads
+      - ${MEDIA}:/media
+    networks: [default]
+
+  # Sonarr - Show management
+  sonarr:
+    image: ghcr.io/hotio/sonarr:latest
+    container_name: sonarr
+    restart: unless-stopped
+    depends_on: [prowlarr]
+    ports:
+      - ${SONARR_PORT}:8989
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK: ${UMASK}
+      TZ: ${TZ}
+    volumes:
+      - ${APPDATA}/sonarr:/config
+      - ${DOWNLOADS}:/downloads
+      - ${MEDIA}:/media
+    networks: [default]
+
+  # Bazarr - Subtitle management
+  bazarr:
+    image: ghcr.io/hotio/bazarr:latest
+    container_name: bazarr
+    restart: unless-stopped
+    ports:
+      - ${BAZARR_PORT}:6767
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK: ${UMASK}
+      TZ: ${TZ}
+    volumes:
+      - ${APPDATA}/bazarr:/config
+      - ${MEDIA}:/media
+    networks: [default]
+
+  # Homepage - Dashboard
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    group_add:
+      - "${DOCKER_GID}"
+    ports:
+      - ${HOMEPAGE_PORT}:3000
+    environment:
+      TZ: ${TZ}
+      HOMEPAGE_ALLOWED_HOSTS: ${HOMEPAGE_DOMAIN}
+      HOMEPAGE_VAR_JELLYFIN_DOMAIN: ${JELLYFIN_DOMAIN}
+      HOMEPAGE_VAR_SEERR_DOMAIN: ${SEERR_DOMAIN}
+      HOMEPAGE_VAR_LAN_IP: ${LAN_IP}
+      HOMEPAGE_VAR_JELLYFIN_PORT: ${JELLYFIN_PORT}
+      HOMEPAGE_VAR_SEERR_PORT: ${SEERR_PORT}
+      HOMEPAGE_VAR_RADARR_PORT: ${RADARR_PORT}
+      HOMEPAGE_VAR_SONARR_PORT: ${SONARR_PORT}
+      HOMEPAGE_VAR_QBITTORRENT_PORT: ${QBITTORRENT_PORT}
+      HOMEPAGE_VAR_SABNZBD_PORT: ${SABNZBD_PORT}
+      HOMEPAGE_VAR_BAZARR_PORT: ${BAZARR_PORT}
+      HOMEPAGE_VAR_TDARR_PORT: ${TDARR_PORT}
+      HOMEPAGE_VAR_BAZARR_API_KEY: ${BAZARR_API_KEY}
+      HOMEPAGE_VAR_JELLYFIN_API_KEY: ${JELLYFIN_API_KEY}
+      HOMEPAGE_VAR_SEERR_API_KEY: ${SEERR_API_KEY}
+      HOMEPAGE_VAR_RADARR_API_KEY: ${RADARR_API_KEY}
+      HOMEPAGE_VAR_SONARR_API_KEY: ${SONARR_API_KEY}
+      HOMEPAGE_VAR_SABNZBD_API_KEY: ${SABNZBD_API_KEY}
+      HOMEPAGE_VAR_TDARR_API_KEY: ${TDARR_API_KEY}
+      HOMEPAGE_VAR_QBITTORRENT_USER: ${QBITTORRENT_USER}
+      HOMEPAGE_VAR_QBITTORRENT_PASS: ${QBITTORRENT_PASS}
+    volumes:
+      - ${APPDATA}/homepage:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${MEDIA}:/media:ro
+    networks: [default]
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+
+  # Wizarr - User invite management
+  wizarr:
+    image: ghcr.io/wizarrrr/wizarr:latest
+    container_name: wizarr
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    ports:
+      - ${WIZARR_PORT}:5690
+    environment:
+      TZ: ${TZ}
+      HOME: /data
+      UV_CACHE_DIR: /data/.cache/uv
+    volumes:
+      - ${APPDATA}/wizarr:/data
+    networks: [default]
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+
+  # Profilarr - Download profile management
+  profilarr:
+    image: ghcr.io/dictionarry-hub/profilarr:latest
+    container_name: profilarr
+    restart: unless-stopped
+    ports:
+      - ${PROFILARR_PORT}:6868
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK: ${UMASK}
+      TZ: ${TZ}
+    volumes:
+      - ${APPDATA}/profilarr:/config
+    networks: [default]
+
+  # Tdarr - Media transcoding (QuickSync ready)
+  tdarr:
+    container_name: tdarr
+    image: ghcr.io/haveagitgat/tdarr:latest
+    restart: unless-stopped
+    ports:
+      - ${TDARR_PORT}:8265
+    environment:
+      TZ: ${TZ}
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK_SET: ${UMASK}
+      webUIPort: ${TDARR_PORT}
+      internalNode: true
+      nodeName: InternalNode
+      inContainer: true
+      ffmpegVersion: 7
+      auth: true
+      apiKey: ${TDARR_API_KEY}
+      openBrowser: true
+    volumes:
+      - ${APPDATA}/tdarr/server:/app/server
+      - ${APPDATA}/tdarr/configs:/app/configs
+      - ${APPDATA}/tdarr/logs:/app/logs
+      - ${MEDIA}:/media
+    devices:
+      - /dev/dri:/dev/dri
+    networks: [default]
+
+networks:
+  default:
+    driver: bridge
