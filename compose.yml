@@ -17,7 +17,7 @@ services:
       PGID: ${PGID}
       UMASK: ${UMASK}
       TZ: ${TZ}
-      LIBTORRENT: v1
+      LIBTORRENT: v2
       WEBUI_PORTS: ${QBITTORRENT_PORT} # Needed to skip host port check in the webui
     ports:
       - ${QBITTORRENT_PORT}:${QBITTORRENT_PORT}
