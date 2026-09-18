@@ -1,12 +1,4 @@
 services:
-  # Cloudflared - HTTPS tunnel
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: cloudflared
-    restart: unless-stopped
-    command: tunnel run --token ${CLOUDFLARED_TOKEN}
-    networks: [default]
-
   # qBittorrent - Torrent client
   qbittorrent:
     image: ghcr.io/hotio/qbittorrent:latest
@@ -190,7 +182,7 @@ services:
       HOMEPAGE_VAR_QBITTORRENT_PORT: ${QBITTORRENT_PORT}
       HOMEPAGE_VAR_SABNZBD_PORT: ${SABNZBD_PORT}
       HOMEPAGE_VAR_BAZARR_PORT: ${BAZARR_PORT}
-      HOMEPAGE_VAR_TDARR_PORT: ${TDARR_PORT}
+      HOMEPAGE_VAR_TDARR_WEB_PORT: ${TDARR_PORT}
       HOMEPAGE_VAR_BAZARR_API_KEY: ${BAZARR_API_KEY}
       HOMEPAGE_VAR_JELLYFIN_API_KEY: ${JELLYFIN_API_KEY}
       HOMEPAGE_VAR_SEERR_API_KEY: ${SEERR_API_KEY}
@@ -269,6 +261,7 @@ services:
       - ${APPDATA}/tdarr/configs:/app/configs
       - ${APPDATA}/tdarr/logs:/app/logs
       - ${MEDIA}:/media
+      - ${APPDATA}/tdarr/cache:/cache
     devices:
       - /dev/dri:/dev/dri
     networks: [default]
