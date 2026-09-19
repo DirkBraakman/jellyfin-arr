@@ -1,0 +1,12 @@
+- greeting:
+    text_size: 4xl
+    text: Bracca's Jellyfin
+
+- resources:
+    label: SRV01
+    uptime: true
+    cpu: true
+    cputemp: true
+    units: metric
+    memory: true
+    disk: /media

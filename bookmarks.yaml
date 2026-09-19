@@ -1,0 +1,20 @@
+- Jellyfin Clients:
+    - Android (Findroid):
+        - icon: findroid.svg
+          href: https://play.google.com/store/apps/details?id=dev.jdtech.jellyfin
+          description: Google Play Store
+
+    - iOS (Streamyfin):
+        - icon: streamyfin.svg
+          href: https://apps.apple.com/us/app/streamyfin/id6593660679
+          description: Apple App Store
+
+    - Google TV (Wholphin):
+        - icon: google-tv.svg
+          href: https://play.google.com/store/apps/details?id=com.github.damontecres.wholphin
+          description: Google Play Store
+
+    - Amazon Fire TV (Wholphin):
+        - icon: si-amazon-#FF9900
+          href: https://www.amazon.com/gp/product/B0G8RQQR9T/ref=mas_pm_wholphin
+          description: Amazon App Store

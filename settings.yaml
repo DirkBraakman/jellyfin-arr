@@ -1,0 +1,25 @@
+title: Bracca's Jellyfin
+description: Media Dashboard
+
+theme: dark
+color: slate
+language: en
+headerStyle: clean
+target: _blank
+hideVersion: true
+
+layout:
+  Watch:
+    style: row
+    columns: 2
+    icon: mdi-television-play
+
+  Services:
+    style: row
+    columns: 3
+    icon: mdi-cog
+
+  Jellyfin Clients:
+    style: row
+    columns: 4
+    icon: mdi-cellphone-link

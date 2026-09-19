@@ -1,0 +1,102 @@
+---
+# Homepage services - manually defined services plus Docker autodiscovery
+
+- Watch:
+    - Jellyfin:
+        icon: jellyfin.svg
+        href: https://{{HOMEPAGE_VAR_JELLYFIN_DOMAIN}}
+        server: docker
+        container: jellyfin
+        description: Watch movies and shows!
+        widget:
+          type: jellyfin
+          url: http://jellyfin:8096
+          key: "{{HOMEPAGE_VAR_JELLYFIN_API_KEY}}"
+          version: 2
+          enableMediaControl: false
+          enableNowPlaying: true
+          enableUser: true
+          showEpisodeNumber: true
+          enableBlocks: true
+
+    - Seerr:
+        icon: seerr.svg
+        href: https://{{HOMEPAGE_VAR_SEERR_DOMAIN}}
+        server: docker
+        container: seerr
+        description: Request new media!
+        widget:
+          type: seerr
+          url: http://seerr:5055
+          key: "{{HOMEPAGE_VAR_SEERR_API_KEY}}"
+          fields: ["pending", "approved", "completed", "issues"]
+
+- Services:
+    - Radarr:
+        icon: radarr.svg
+        href: http://{{HOMEPAGE_VAR_LAN_IP}}:{{HOMEPAGE_VAR_RADARR_PORT}}
+        server: docker
+        container: radarr
+        widget:
+          type: radarr
+          url: http://radarr:7878
+          key: "{{HOMEPAGE_VAR_RADARR_API_KEY}}"
+          enableQueue: true
+          fields: ["wanted", "missing", "queued", "movies"]
+
+    - Sonarr:
+        icon: sonarr.svg
+        href: http://{{HOMEPAGE_VAR_LAN_IP}}:{{HOMEPAGE_VAR_SONARR_PORT}}
+        server: docker
+        container: sonarr
+        widget:
+          type: sonarr
+          url: http://sonarr:8989
+          key: "{{HOMEPAGE_VAR_SONARR_API_KEY}}"
+          enableQueue: true
+          fields: ["wanted", "queued", "series"]
+
+    - Tdarr:
+        icon: tdarr.png
+        href: http://{{HOMEPAGE_VAR_LAN_IP}}:{{HOMEPAGE_VAR_TDARR_WEB_PORT}}
+        server: docker
+        container: tdarr
+        widget:
+          type: tdarr
+          url: http://tdarr:8265
+          key: "{{HOMEPAGE_VAR_TDARR_API_KEY}}"
+          fields: ["queue", "processed", "errored", "saved"]
+
+    - Bazarr:
+        icon: bazarr.svg
+        href: http://{{HOMEPAGE_VAR_LAN_IP}}:{{HOMEPAGE_VAR_BAZARR_PORT}}
+        server: docker
+        container: bazarr
+        widget:
+          type: bazarr
+          url: http://bazarr:6767
+          key: "{{HOMEPAGE_VAR_BAZARR_API_KEY}}"
+          fields: ["missingEpisodes", "missingMovies"]
+
+    - qBittorrent:
+        icon: qbittorrent.svg
+        href: http://{{HOMEPAGE_VAR_LAN_IP}}:{{HOMEPAGE_VAR_QBITTORRENT_PORT}}
+        server: docker
+        container: qbittorrent
+        widget:
+          type: qbittorrent
+          url: http://qbittorrent:{{HOMEPAGE_VAR_QBITTORRENT_PORT}}
+          username: "{{HOMEPAGE_VAR_QBITTORRENT_USER}}"
+          password: "{{HOMEPAGE_VAR_QBITTORRENT_PASS}}"
+          fields: ["leech", "download", "seed", "upload"]
+
+    - SABnzbd:
+        icon: sabnzbd.svg
+        href: http://{{HOMEPAGE_VAR_LAN_IP}}:{{HOMEPAGE_VAR_SABNZBD_PORT}}
+        server: docker
+        container: sabnzbd
+        widget:
+          type: sabnzbd
+          url: http://sabnzbd:8080
+          key: "{{HOMEPAGE_VAR_SABNZBD_API_KEY}}"
+          fields: ["rate", "queue", "timeleft"]
